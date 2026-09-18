@@ -1,0 +1,11 @@
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "C4"]
+ignore = ["E501", "UP017"]  # UP017 prefers datetime.UTC; timezone.utc is clearer and widely compatible
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

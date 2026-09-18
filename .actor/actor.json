@@ -1,0 +1,36 @@
+{
+  "actorSpecification": 1,
+  "name": "sentinelng",
+  "title": "SentinelNG",
+  "description": "External attack surface monitoring built on public Certificate Transparency logs. Discovers forgotten assets, detects certificate anomalies, and finds impersonation domains, from the attacker's outside view.",
+  "version": "0.1",
+  "buildTag": "latest",
+  "meta": { "templateId": "python-start" },
+  "input": "./input_schema.json",
+  "dockerfile": "../Dockerfile",
+  "storages": {
+    "dataset": {
+      "actorSpecification": 1,
+      "title": "Attack surface findings",
+      "views": {
+        "overview": {
+          "title": "Findings",
+          "transformation": {
+            "fields": ["severity", "risk_score", "finding_type", "domain", "issuer", "reasons"]
+          },
+          "display": {
+            "component": "table",
+            "properties": {
+              "severity": { "label": "Severity", "format": "text" },
+              "risk_score": { "label": "Score", "format": "number" },
+              "finding_type": { "label": "Type", "format": "text" },
+              "domain": { "label": "Asset / Domain", "format": "text" },
+              "issuer": { "label": "Issuer", "format": "text" },
+              "reasons": { "label": "Why", "format": "array" }
+            }
+          }
+        }
+      }
+    }
+  }
+}

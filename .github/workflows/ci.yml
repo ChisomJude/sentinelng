@@ -1,0 +1,82 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Lint and test
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest ruff
+
+      - name: Lint
+        run: ruff check src tests
+
+      - name: Run tests
+        run: pytest tests -v
+
+  validate-actor:
+    name: Validate Actor config
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate JSON manifests
+        run: |
+          python -c "import json; json.load(open('.actor/actor.json')); print('actor.json ok')"
+          python -c "import json; json.load(open('.actor/input_schema.json')); print('input_schema.json ok')"
+          python -c "import json; json.load(open('dashboard/vercel.json')); print('vercel.json ok')"
+
+      - name: Check required Actor fields
+        run: |
+          python - <<'PY'
+          import json, sys
+          manifest = json.load(open('.actor/actor.json'))
+          required = ['actorSpecification', 'name', 'version', 'input', 'dockerfile']
+          missing = [f for f in required if f not in manifest]
+          if missing:
+              sys.exit(f"actor.json is missing: {missing}")
+
+          schema = json.load(open('.actor/input_schema.json'))
+          if 'brand_name' not in schema.get('properties', {}):
+              sys.exit("input_schema.json must expose brand_name")
+          if 'brand_name' not in schema.get('required', []):
+              sys.exit("brand_name must be required")
+          print("Actor config ok")
+          PY
+
+  docker:
+    name: Build Actor image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        # Catches dependency and Dockerfile breakage before it reaches Apify,
+        # where a failed build costs a compute cycle to discover.
+        run: docker build -t sentinelng:ci .

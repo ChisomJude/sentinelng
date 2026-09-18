@@ -1,0 +1,59 @@
+{
+  "title": "SentinelNG input",
+  "type": "object",
+  "schemaVersion": 1,
+  "properties": {
+    "organization_domains": {
+      "title": "Your organization's domains",
+      "type": "array",
+      "description": "The domains your organization owns, for example sterling.ng and sterlingbank.ng. SentinelNG builds your external asset inventory from these and reports your exposure. Include subsidiaries and regional domains.",
+      "editor": "stringList",
+      "prefill": ["sterling.ng"]
+    },
+    "min_score": {
+      "title": "Minimum risk score",
+      "type": "integer",
+      "description": "Findings below this score are suppressed. 35 keeps medium and above. Lower to 20 to see the full asset inventory including low-risk auxiliary services.",
+      "editor": "number",
+      "default": 35,
+      "minimum": 0,
+      "maximum": 100
+    },
+    "detect_impersonation": {
+      "title": "Detect lookalike domains",
+      "type": "boolean",
+      "description": "Also search for domains impersonating your brand, built to phish your customers. On by default.",
+      "editor": "checkbox",
+      "default": true
+    },
+    "alert_severities": {
+      "title": "Alert on these severities",
+      "type": "array",
+      "description": "Which severity levels trigger the webhook. Everything is still written to the dataset.",
+      "editor": "stringList",
+      "default": ["critical", "high"]
+    },
+    "webhook_url": {
+      "title": "Alert webhook URL",
+      "type": "string",
+      "description": "POST endpoint for alerts. Works with Slack, Microsoft Teams, a SOAR platform, or your own pipeline.",
+      "editor": "textfield",
+      "isSecret": true
+    },
+    "enable_fingerprint": {
+      "title": "Enable passive technology fingerprint (advanced)",
+      "type": "boolean",
+      "description": "OFF by default. When on, performs a single passive HTTP GET to the homepage of assets you own, reads only what the server volunteers, and flags known CVEs for awareness. Never probes or tests vulnerabilities. Run only against your own estate.",
+      "editor": "checkbox",
+      "default": false
+    },
+    "use_apify_proxy": {
+      "title": "Route CT queries through Apify Proxy",
+      "type": "boolean",
+      "description": "Enable only when assessing very large estates, to avoid rate limits. Not needed for a single organization.",
+      "editor": "checkbox",
+      "default": false
+    }
+  },
+  "required": ["organization_domains"]
+}

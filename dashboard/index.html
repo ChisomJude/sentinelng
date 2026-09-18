@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SentinelNG</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#ffffff;
+    --ground:#eceff4;
+    --rule:#d7dce4;
+    --ink:#15181e;
+    --muted:#6a7383;
+    --critical:#a8201a;
+    --high:#b45b12;
+    --medium:#8a6d1f;
+    --low:#476b80;
+    --focus:#1f4e7a;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    background:var(--ground);
+    color:var(--ink);
+    font-family:Archivo,system-ui,sans-serif;
+    font-size:15px;
+    line-height:1.5;
+    padding:24px 16px 64px;
+  }
+  .wrap{max-width:1080px;margin:0 auto}
+
+  /* ---- masthead ---- */
+  .masthead{display:flex;flex-wrap:wrap;gap:16px;align-items:baseline;justify-content:space-between;margin-bottom:20px}
+  .mark{font-size:20px;font-weight:700;letter-spacing:-0.02em}
+  .mark span{font-weight:400;color:var(--muted)}
+  .clock{font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--muted)}
+
+  /* ---- controls ---- */
+  .controls{display:flex;flex-wrap:wrap;gap:8px;background:var(--paper);border:1px solid var(--rule);border-radius:4px;padding:12px;margin-bottom:20px}
+  .controls label{flex:1 1 190px;display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
+  .controls input,.controls select{
+    font:inherit;font-size:14px;padding:7px 9px;border:1px solid var(--rule);
+    border-radius:3px;background:var(--paper);color:var(--ink);width:100%;
+  }
+  .controls input:focus-visible,.controls select:focus-visible,button:focus-visible{outline:2px solid var(--focus);outline-offset:1px}
+  button{
+    font:inherit;font-weight:600;font-size:14px;padding:8px 18px;align-self:flex-end;
+    background:var(--ink);color:var(--paper);border:0;border-radius:3px;cursor:pointer;
+  }
+  button:hover{background:var(--focus)}
+  button[disabled]{opacity:.5;cursor:default}
+
+  /* ---- hero: newest detection ---- */
+  .latest{background:var(--paper);border:1px solid var(--rule);border-left:5px solid var(--rule);border-radius:4px;padding:22px;margin-bottom:20px}
+  .latest .cue{font-size:12px;color:var(--muted);margin-bottom:10px}
+  .latest .domain{
+    font-family:"JetBrains Mono",monospace;font-weight:700;
+    font-size:clamp(20px,4.2vw,34px);line-height:1.2;word-break:break-all;
+  }
+  .latest .meta{margin-top:12px;font-size:13px;color:var(--muted);display:flex;flex-wrap:wrap;gap:6px 20px}
+  .latest .meta b{color:var(--ink);font-weight:600}
+  .latest.critical{border-left-color:var(--critical)}
+  .latest.high{border-left-color:var(--high)}
+  .latest.medium{border-left-color:var(--medium)}
+  .latest.low{border-left-color:var(--low)}
+
+  /* ---- run summary strip ---- */
+  .strip{display:flex;flex-wrap:wrap;gap:0;border:1px solid var(--rule);border-radius:4px;overflow:hidden;background:var(--paper);margin-bottom:20px}
+  .strip div{flex:1 1 130px;padding:12px 16px;border-right:1px solid var(--rule)}
+  .strip div:last-child{border-right:0}
+  .strip .n{font-family:"JetBrains Mono",monospace;font-size:22px;font-weight:700}
+  .strip .k{font-size:12px;color:var(--muted)}
+
+  /* ---- ledger ---- */
+  .ledger{background:var(--paper);border:1px solid var(--rule);border-radius:4px;overflow:hidden}
+  .row{display:grid;grid-template-columns:52px 1fr auto;gap:14px;align-items:start;
+       padding:14px 16px 14px 12px;border-top:1px solid var(--rule);border-left:5px solid transparent}
+  .row:first-child{border-top:0}
+  .row.critical{border-left-color:var(--critical)}
+  .row.high{border-left-color:var(--high)}
+  .row.medium{border-left-color:var(--medium)}
+  .row.low{border-left-color:var(--low)}
+  .score{font-family:"JetBrains Mono",monospace;font-size:19px;font-weight:700;text-align:right}
+  .row.critical .score{color:var(--critical)}
+  .row.high .score{color:var(--high)}
+  .row.medium .score{color:var(--medium)}
+  .row.low .score{color:var(--low)}
+  .dom{font-family:"JetBrains Mono",monospace;font-size:15px;font-weight:500;word-break:break-all}
+  .why{margin-top:5px;font-size:13px;color:var(--muted)}
+  .why li{margin-left:16px}
+  .when{font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--muted);white-space:nowrap}
+  .empty{padding:40px 16px;text-align:center;color:var(--muted)}
+  .empty b{display:block;color:var(--ink);font-size:16px;margin-bottom:4px}
+  .err{background:#fdf3f2;border-color:var(--critical);color:var(--critical);padding:14px 16px;border:1px solid var(--critical);border-radius:4px;margin-bottom:20px;font-size:14px}
+  footer{margin-top:28px;font-size:12px;color:var(--muted);text-align:center}
+  @media (prefers-reduced-motion:no-preference){
+    .latest{animation:settle .4s ease-out}
+    @keyframes settle{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+  }
+  @media(max-width:560px){
+    .row{grid-template-columns:44px 1fr;gap:10px}
+    .when{grid-column:2;margin-top:4px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="masthead">
+    <div class="mark">Sentinel<span>NG</span></div>
+    <div class="clock" id="clock">not connected</div>
+  </div>
+
+  <div class="controls">
+    <label>Apify dataset ID
+      <input id="dataset" placeholder="e.g. aBcD1234efGh" autocomplete="off">
+    </label>
+    <label>API token (optional, for private datasets)
+      <input id="token" type="password" placeholder="apify_api_..." autocomplete="off">
+    </label>
+    <label>Show
+      <select id="filter">
+        <option value="all">All severities</option>
+        <option value="critical">Critical only</option>
+        <option value="high">High and above</option>
+        <option value="medium">Medium and above</option>
+      </select>
+    </label>
+    <button id="load">Load findings</button>
+  </div>
+
+  <div id="error"></div>
+  <div id="latest"></div>
+  <div id="strip"></div>
+  <div class="ledger" id="ledger">
+    <div class="empty"><b>Nothing loaded yet</b>Enter your dataset ID and load findings.</div>
+  </div>
+
+  <footer>Data source: public Certificate Transparency logs via crt.sh</footer>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const ORDER = {critical:0, high:1, medium:2, low:3};
+const MIN = {all:3, medium:2, high:1, critical:0};
+let items = [];
+
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => (
+  {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+function ago(ts){
+  if(!ts) return "unknown";
+  const t = Date.parse(ts.endsWith("Z") ? ts : ts + "Z");
+  if(Number.isNaN(t)) return "unknown";
+  const m = Math.floor((Date.now() - t) / 60000);
+  if(m < 1) return "just now";
+  if(m < 60) return m + "m ago";
+  if(m < 1440) return Math.floor(m/60) + "h ago";
+  return Math.floor(m/1440) + "d ago";
+}
+
+async function load(){
+  const id = $("dataset").value.trim();
+  const token = $("token").value.trim();
+  $("error").innerHTML = "";
+  if(!id){ fail("Enter the dataset ID from your Actor run, then load again."); return; }
+
+  $("load").disabled = true;
+  $("load").textContent = "Loading";
+  try{
+    let url = `https://api.apify.com/v2/datasets/${encodeURIComponent(id)}/items?clean=true&limit=500`;
+    if(token) url += `&token=${encodeURIComponent(token)}`;
+    const res = await fetch(url);
+    if(!res.ok) throw new Error(`Apify returned ${res.status}. Check the dataset ID and token.`);
+    items = await res.json();
+    items.sort((a,b) => (ORDER[a.severity]??9) - (ORDER[b.severity]??9) || b.risk_score - a.risk_score);
+    $("clock").textContent = "last refreshed " + new Date().toLocaleTimeString();
+    render();
+  }catch(e){
+    fail(e.message);
+  }finally{
+    $("load").disabled = false;
+    $("load").textContent = "Load findings";
+  }
+}
+
+function fail(msg){
+  $("error").innerHTML = `<div class="err">${esc(msg)}</div>`;
+}
+
+function render(){
+  const cut = MIN[$("filter").value];
+  const seenKey = new Set();
+  const deduped = items.filter(i => {
+    const k = i.finding_type + "|" + i.domain;
+    if (seenKey.has(k)) return false;
+    seenKey.add(k); return true;
+  });
+  const shown = deduped.filter(i => (ORDER[i.severity] ?? 9) <= cut);
+
+  // hero
+  const top = shown[0];
+  $("latest").innerHTML = top ? `
+    <div class="latest ${esc(top.severity)}">
+      <div class="cue">Highest risk finding</div>
+      <div class="domain">${esc(top.domain)}</div>
+      <div class="meta">
+        <span>Risk <b>${esc(top.risk_score)}</b> of 100</span>
+        <span>Severity <b>${esc(top.severity)}</b></span>
+        <span>First seen <b>${esc(ago(top.entry_timestamp))}</b></span>
+        <span>Issuer <b>${esc((top.issuer||"").replace(/^.*O=/,"").split(",")[0] || "unknown")}</b></span>
+      </div>
+    </div>` : "";
+
+  // summary strip
+  const count = s => items.filter(i => i.severity === s).length;
+  $("strip").innerHTML = items.length ? `
+    <div class="strip">
+      <div><div class="n">${items.length}</div><div class="k">Total findings</div></div>
+      <div><div class="n" style="color:var(--critical)">${count("critical")}</div><div class="k">Critical</div></div>
+      <div><div class="n" style="color:var(--high)">${count("high")}</div><div class="k">High</div></div>
+      <div><div class="n" style="color:var(--medium)">${count("medium")}</div><div class="k">Medium</div></div>
+    </div>` : "";
+
+  // ledger
+  $("ledger").innerHTML = shown.length ? shown.map(i => `
+    <div class="row ${esc(i.severity)}">
+      <div class="score">${esc(i.risk_score)}</div>
+      <div>
+        <div class="dom">${esc(i.domain)} <span style="font-size:11px;color:var(--muted);font-weight:400">${esc((i.finding_type||"").replace(/_/g," "))}</span></div>
+        <ul class="why">${(i.reasons||[]).map(r => `<li>${esc(r)}</li>`).join("")}</ul>
+      </div>
+      <div class="when">${esc(ago(i.entry_timestamp))}</div>
+    </div>`).join("")
+    : `<div class="empty"><b>No findings at this severity</b>Nothing impersonating this brand was logged in the window.</div>`;
+}
+
+$("load").addEventListener("click", load);
+$("filter").addEventListener("change", () => items.length && render());
+$("dataset").addEventListener("keydown", e => e.key === "Enter" && load());
+</script>
+</body>
+</html>

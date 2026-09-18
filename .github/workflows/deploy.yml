@@ -1,0 +1,79 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-main
+  cancel-in-progress: false
+
+jobs:
+  gate:
+    name: Test before deploy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: |
+          pip install -r requirements.txt
+          pip install pytest
+          pytest tests -q
+
+  deploy-actor:
+    name: Push Actor to Apify
+    needs: gate
+    runs-on: ubuntu-latest
+    # Skips cleanly on a fork or before the secret is configured, rather than
+    # failing the run with a confusing auth error.
+    if: ${{ github.repository_owner != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install Apify CLI
+        run: npm install -g apify-cli
+
+      - name: Push to Apify
+        env:
+          APIFY_TOKEN: ${{ secrets.APIFY_TOKEN }}
+        run: |
+          if [ -z "$APIFY_TOKEN" ]; then
+            echo "APIFY_TOKEN not set, skipping Actor deploy."
+            exit 0
+          fi
+          apify push --no-prompt
+
+  deploy-dashboard:
+    name: Deploy dashboard to Vercel
+    needs: gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Deploy
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          if [ -z "$VERCEL_TOKEN" ]; then
+            echo "VERCEL_TOKEN not set, skipping dashboard deploy."
+            exit 0
+          fi
+          npm install -g vercel@latest
+          cd dashboard
+          vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+          vercel build --prod --token="$VERCEL_TOKEN"
+          vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN"
