@@ -16,7 +16,7 @@
         "overview": {
           "title": "Findings",
           "transformation": {
-            "fields": ["severity", "risk_score", "finding_type", "domain", "issuer", "reasons"]
+            "fields": ["severity", "risk_score", "finding_type", "domain", "cert_count", "issuer", "reasons"]
           },
           "display": {
             "component": "table",
@@ -25,6 +25,7 @@
               "risk_score": { "label": "Score", "format": "number" },
               "finding_type": { "label": "Type", "format": "text" },
               "domain": { "label": "Asset / Domain", "format": "text" },
+              "cert_count": { "label": "Certs", "format": "number" },
               "issuer": { "label": "Issuer", "format": "text" },
               "reasons": { "label": "Why", "format": "array" }
             }

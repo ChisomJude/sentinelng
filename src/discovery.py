@@ -75,28 +75,79 @@ PHISHING_KEYWORDS = [
 ]
 
 
+# Two-label public suffixes. Taking the second-to-last label as the brand is
+# correct for gtbank.com but wrong for every one of these: firstbank.com.ng
+# would yield 'com'. That is not academic for this product. Nigerian banks sit
+# on .com.ng almost universally, and a brand root of 'com' makes the CT token
+# '%com%' and makes every domain containing 'com' score as a brand match.
+# A full public suffix list is overkill here; this covers the target market
+# and the common international suffixes.
+MULTI_LABEL_SUFFIXES = {
+    "com.ng", "org.ng", "gov.ng", "edu.ng", "net.ng", "sch.ng", "mil.ng", "name.ng",
+    "com.gh", "com.ke", "co.ke", "com.za", "co.za", "org.za", "com.eg", "com.tz",
+    "co.uk", "org.uk", "ac.uk", "gov.uk", "me.uk", "net.uk",
+    "com.au", "net.au", "org.au", "co.nz", "co.in", "co.jp", "com.br", "com.cn",
+    "com.tr", "com.mx", "com.ar", "com.sg", "com.my", "com.ph", "com.pk",
+}
+
+
+def _split_suffix(domain: str) -> tuple[list[str], str]:
+    """Return (labels before the public suffix, the suffix)."""
+    labels = [x for x in domain.lower().strip().lstrip("*.").split(".") if x]
+    if len(labels) >= 3 and ".".join(labels[-2:]) in MULTI_LABEL_SUFFIXES:
+        return labels[:-2], ".".join(labels[-2:])
+    if len(labels) >= 2:
+        return labels[:-1], labels[-1]
+    return labels, ""
+
+
 def registrable_root(domain: str) -> str:
     """
-    The brand label of a domain. gtbank.com -> gtbank, sterling.ng -> sterling.
-    Good enough for token generation without a public suffix list.
+    The brand label of a domain. gtbank.com -> gtbank, sterling.ng -> sterling,
+    and firstbank.com.ng -> firstbank rather than 'com'.
     """
-    labels = domain.lower().strip().lstrip("*.").split(".")
-    labels = [x for x in labels if x]
-    if len(labels) >= 2:
-        return labels[-2]
-    return labels[0] if labels else ""
+    head, _ = _split_suffix(domain)
+    return head[-1] if head else ""
+
+
+def registrable_domain(domain: str) -> str:
+    """
+    The domain someone actually registered, suffix included.
+
+    ebank.gtbankci.com -> gtbankci.com. Impersonation findings group on this,
+    because one hostile registration is one thing to act on no matter how many
+    hostnames the attacker hangs off it.
+    """
+    head, suffix = _split_suffix(domain)
+    if not head:
+        return suffix
+    return f"{head[-1]}.{suffix}" if suffix else head[-1]
 
 
 def generate_tokens(domains: list[str], include_impersonation: bool = True) -> list[str]:
     """
     Build CT search tokens from the organisation's own domains.
 
-    The brand root (e.g. 'sterling') is the key token: a substring CT search on
-    it returns the whole real estate plus most lookalikes in one query. When
-    impersonation detection is on, a few hyphenation variants widen coverage.
+    Two kinds of query, because neither alone is sufficient.
+
+    '%.sterling.ng' is crt.sh's indexed subdomain form and is what actually
+    enumerates the estate. A bare substring search cannot replace it: crt.sh
+    silently truncates expensive LIKE queries, and measured against real data
+    '%gtbank%' returned 98 rows where '%.gtbank.com' returned 3902. Scoring the
+    truncated 2.5% is what made a live run report that www.gtbank.com had no
+    valid certificate, on the strength of a 2014 cert.
+
+    The brand root ('sterling') is still needed, because a lookalike lives on
+    someone else's domain and so can never appear under '%.sterling.ng'. It is
+    an impersonation query only, and its truncation is tolerable there: it is
+    looking for the presence of a hostile name, not the absence of a friendly one.
     """
     tokens: set[str] = set()
     for domain in domains:
+        clean_domain = domain.lower().strip().lstrip("*.")
+        if clean_domain and "." in clean_domain:
+            # Indexed estate enumeration. Kept verbatim by the CT client.
+            tokens.add(f"%.{clean_domain}")
         root = registrable_root(domain)
         if len(root) >= 3:
             tokens.add(root)
@@ -108,12 +159,16 @@ def generate_tokens(domains: list[str], include_impersonation: bool = True) -> l
     if include_impersonation:
         extra: set[str] = set()
         for t in list(tokens):
+            # Typo variants apply to brand roots only. Mutating the indexed
+            # estate pattern would just produce nonsense like '%.gtbank.co'.
+            if t.startswith("%"):
+                continue
             if len(t) >= 5:
                 extra.add(t[:-1])          # truncation typo
                 extra.add(t + "-")         # hyphenated lookalike prefix
         tokens |= extra
 
-    return sorted(t for t in tokens if len(t) >= 3)
+    return sorted(t for t in tokens if t.startswith("%") or len(t) >= 3)
 
 
 def is_own_asset(domain: str, official_domains: list[str]) -> bool:

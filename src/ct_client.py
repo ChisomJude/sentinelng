@@ -23,6 +23,7 @@ CRTSH_URL = "https://crt.sh/"
 REQUEST_TIMEOUT = 60.0
 MAX_RETRIES = 3
 RETRY_BACKOFF_SECONDS = 4
+RETRYABLE_STATUS = {429, 502, 503, 504}
 
 
 class CTQueryError(RuntimeError):
@@ -60,20 +61,47 @@ def extract_domains(entry: dict[str, Any]) -> set[str]:
 
 
 async def query_token(client: httpx.AsyncClient, token: str) -> list[dict[str, Any]]:
-    """Query CT logs for every certificate whose subject contains `token`."""
-    params = {"q": f"%{token}%", "output": "json"}
+    """
+    Query CT logs for certificates matching `token`.
+
+    A token that already carries its own wildcard (the '%.example.com' estate
+    pattern) is sent verbatim, because that is crt.sh's indexed subdomain form
+    and wrapping it again would turn it into a slow, truncated LIKE scan. A
+    bare brand root is wrapped into '%root%' for lookalike discovery.
+    """
+    query = token if token.startswith("%") else f"%{token}%"
+    params = {"q": query, "output": "json"}
 
     entries: list[dict[str, Any]] = []
     for attempt in range(1, MAX_RETRIES + 1):
         try:
             response = await client.get(CRTSH_URL, params=params, timeout=REQUEST_TIMEOUT)
-            if response.status_code == 429:
+            if response.status_code in RETRYABLE_STATUS:
+                # 429 is rate limiting and clears on its own. 502/503/504 mean
+                # crt.sh's backend gave up on the query, which broad substring
+                # searches routinely cause, so back off rather than hammer it.
                 await asyncio.sleep(RETRY_BACKOFF_SECONDS * attempt)
                 continue
             response.raise_for_status()
             raw = response.text.strip()
-            entries = json.loads(raw) if raw else []
+            if not raw:
+                entries = []
+                break
+            if not raw.startswith(("[", "{")):
+                # crt.sh answers overload with an HTML error page under a 200 as
+                # well as under a 5xx. Treat it as a failed query, not as zero
+                # certificates: "no results" and "no answer" mean opposite things
+                # to a scorer reasoning about absence.
+                raise CTQueryError(
+                    f"CT query for token '{token}' returned non-JSON "
+                    f"(status {response.status_code}, starts {raw[:40]!r})"
+                )
+            entries = json.loads(raw)
             break
+        except CTQueryError:
+            if attempt == MAX_RETRIES:
+                raise
+            await asyncio.sleep(RETRY_BACKOFF_SECONDS * attempt)
         except Exception as exc:  # noqa: BLE001
             if attempt == MAX_RETRIES:
                 raise CTQueryError(f"CT query failed for token '{token}': {exc}") from exc

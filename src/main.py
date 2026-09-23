@@ -39,7 +39,17 @@ async def save_seen(store, seen: set[str]) -> None:
 
 
 def fingerprint_key(f: dict[str, Any]) -> str:
-    return f"{f['finding_type']}|{f['domain']}|{f.get('crtsh_id')}"
+    """
+    Identity of a finding across runs, for the seen-before diff.
+
+    Keyed on the asset and its severity, NOT on the certificate id. Keying on
+    the cert id meant every routine renewal minted a brand new "finding" for an
+    asset the team had already triaged, so a single lookalike domain could
+    re-alert on every run. Including severity keeps the one alert that matters:
+    if an asset escalates from medium to critical, that is new information and
+    fires again.
+    """
+    return f"{f['finding_type']}|{f['domain']}|{f['severity']}"
 
 
 async def deliver_webhook(url: str, payload: dict[str, Any]) -> bool:
@@ -92,10 +102,18 @@ async def main() -> None:
 
         # 3. Discover the estate from Certificate Transparency
         records, failed = await query_all_tokens(tokens, proxy_url=proxy_url)
+        ct_complete = not failed
         Actor.log.info(f"CT returned {len(records)} certificate records ({len(failed)} tokens failed)")
+        if failed:
+            # Absence-based findings are suppressed downstream when this is set,
+            # so the run degrades honestly instead of inventing "no valid cert".
+            Actor.log.warning(
+                f"Incomplete CT sweep, tokens failed: {failed}. Findings that depend on "
+                f"seeing an asset's full certificate history are suppressed this run."
+            )
 
         # 4. Classify and score into own-asset risk, cert anomaly, impersonation
-        findings, stats = assess(records, org_domains, min_score)
+        findings, stats = assess(records, org_domains, min_score, ct_complete=ct_complete)
         Actor.log.info(f"{len(findings)} findings | stats={stats}")
 
         # 5. Optional passive fingerprint, own assets only
@@ -143,6 +161,7 @@ async def main() -> None:
             "tokens": len(tokens),
             "tokens_failed": len(failed),
             "records_examined": len(records),
+            "ct_complete": ct_complete,
             "findings": len(findings),
             "new_findings": len(new_findings),
             "stats": stats,

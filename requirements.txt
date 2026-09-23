@@ -1,2 +1,25 @@
-apify ~= 2.0
-httpx ~= 0.27
+# Pinned to a known-good set. Do not float these without re-testing a live run.
+#
+# Why each pin matters:
+#   apify        2.7.3  - Actor SDK. Pulls crawlee as a transitive dep.
+#   crawlee      0.6.12 - pinned explicitly so apify's "crawlee~=0.6.0" cannot
+#                         drift into an untested 0.6.x on an Apify rebuild.
+#   browserforge 1.2.3  - REQUIRED CEILING. crawlee 0.6.12 declares
+#                         "browserforge>=1.2.3" with no upper bound, but its
+#                         compatibility shim (crawlee/_browserforge_workaround.py)
+#                         reads browserforge.download.DATA_FILES, which 1.2.4
+#                         removed. Unpinned, every fresh install dies at import
+#                         with: AttributeError: module 'browserforge.download'
+#                         has no attribute 'DATA_FILES'.
+#   pydantic     2.10.6 - crawlee excludes 2.10.0/.1/.2; 2.11 changed internals
+#                         the SDK has not been validated against here.
+#   httpx        0.28.1 - our crt.sh client, and crawlee's http stack.
+#
+# SentinelNG never launches a browser. browserforge/crawlee are dead weight we
+# carry only because the apify SDK imports them at package import time.
+
+apify==2.7.3
+crawlee==0.6.12
+browserforge==1.2.3
+pydantic==2.10.6
+httpx==0.28.1

@@ -63,10 +63,10 @@ jobs:
               sys.exit(f"actor.json is missing: {missing}")
 
           schema = json.load(open('.actor/input_schema.json'))
-          if 'brand_name' not in schema.get('properties', {}):
-              sys.exit("input_schema.json must expose brand_name")
-          if 'brand_name' not in schema.get('required', []):
-              sys.exit("brand_name must be required")
+          if 'organization_domains' not in schema.get('properties', {}):
+              sys.exit("input_schema.json must expose organization_domains")
+          if 'organization_domains' not in schema.get('required', []):
+              sys.exit("organization_domains must be required")
           print("Actor config ok")
           PY
 
