@@ -60,7 +60,9 @@ NOTABLE_LABELS = {
     "chat":       "third-party chat widget, external code in the page",
     "servicedesk":"helpdesk system, often internet-facing and sensitive",
     "helpdesk":   "helpdesk system, often internet-facing and sensitive",
-    "vpn":        "remote access gateway",
+    # NOTE: "vpn" is deliberately absent. It lives in RISKY_LABELS, and
+    # listing it here too made every VPN host score twice, +40 and +20,
+    # for one fact, with two near-duplicate reasons on the finding.
     "remote":     "remote access service",
     "portal":     "customer or partner portal, authentication surface",
     "ebank":      "online banking application, high-value surface",

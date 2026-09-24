@@ -9,100 +9,154 @@
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
   :root{
-    --paper:#ffffff;
-    --ground:#eceff4;
-    --rule:#d7dce4;
-    --ink:#15181e;
-    --muted:#6a7383;
-    --critical:#a8201a;
-    --high:#b45b12;
-    --medium:#8a6d1f;
-    --low:#476b80;
-    --focus:#1f4e7a;
+    color-scheme: dark;
+    --surface-0:#121211;
+    --surface-1:#1a1a19;
+    --surface-2:#232320;
+    --line:#2f2f2b;
+    --line-soft:#262623;
+    --text:#ffffff;
+    --text-2:#c3c2b7;
+    --text-3:#8a8a7e;
+
+    /* Status palette, fixed and never themed. All four clear 3:1 on --surface-1.
+       high and medium are only 13.6 apart for normal vision, under the 15 floor,
+       so severity never reads by colour alone: every severity ships a distinct
+       glyph shape and a written label alongside the hue. */
+    --critical:#d03b3b;
+    --high:#ec835a;
+    --medium:#fab219;
+    --low:#6e93b8;
+
+    --focus:#5aa0ff;
+    --radius:10px;
   }
   *{box-sizing:border-box;margin:0;padding:0}
   html{-webkit-text-size-adjust:100%}
   body{
-    background:var(--ground);
-    color:var(--ink);
+    background:
+      radial-gradient(1100px 520px at 12% -12%, #1d2430 0%, transparent 62%),
+      var(--surface-0);
+    color:var(--text);
     font-family:Archivo,system-ui,sans-serif;
-    font-size:15px;
-    line-height:1.5;
-    padding:24px 16px 64px;
+    font-size:15px;line-height:1.5;
+    padding:22px 16px 72px;
+    min-height:100vh;
   }
-  .wrap{max-width:1080px;margin:0 auto}
+  .wrap{max-width:1120px;margin:0 auto}
+  .mono{font-family:"JetBrains Mono",ui-monospace,monospace}
 
-  /* ---- masthead ---- */
-  .masthead{display:flex;flex-wrap:wrap;gap:16px;align-items:baseline;justify-content:space-between;margin-bottom:20px}
-  .mark{font-size:20px;font-weight:700;letter-spacing:-0.02em}
-  .mark span{font-weight:400;color:var(--muted)}
-  .clock{font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--muted)}
+  /* ---------- masthead ---------- */
+  .masthead{display:flex;flex-wrap:wrap;gap:12px 18px;align-items:center;justify-content:space-between;margin-bottom:18px}
+  .brand{display:flex;align-items:center;gap:11px;min-width:0}
+  .beacon{position:relative;width:11px;height:11px;flex:none}
+  .beacon i{position:absolute;inset:0;border-radius:50%;background:var(--low);display:block}
+  .beacon::after{content:"";position:absolute;inset:-5px;border-radius:50%;border:1px solid var(--low);opacity:.55}
+  .mark{font-size:20px;font-weight:700;letter-spacing:-.02em;white-space:nowrap}
+  .mark span{font-weight:400;color:var(--text-3)}
+  .tagline{font-size:12.5px;color:var(--text-3);border-left:1px solid var(--line);padding-left:14px}
+  .head-right{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .stamp{display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--text-2);
+         background:var(--surface-1);border:1px solid var(--line);border-radius:999px;padding:5px 12px;white-space:nowrap}
+  .stamp b{color:var(--text);font-weight:600}
+  .clock{font-size:11.5px;color:var(--text-3)}
 
-  /* ---- controls ---- */
-  .controls{display:flex;flex-wrap:wrap;gap:8px;background:var(--paper);border:1px solid var(--rule);border-radius:4px;padding:12px;margin-bottom:20px}
-  .controls label{flex:1 1 190px;display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
+  /* ---------- panels ---------- */
+  .panel{background:var(--surface-1);border:1px solid var(--line);border-radius:var(--radius)}
+
+  /* ---------- controls ---------- */
+  .controls{display:flex;flex-wrap:wrap;gap:10px;padding:12px;margin-bottom:16px;align-items:flex-end}
+  .controls label{flex:1 1 180px;display:flex;flex-direction:column;gap:5px;font-size:11.5px;color:var(--text-3)}
   .controls input,.controls select{
-    font:inherit;font-size:14px;padding:7px 9px;border:1px solid var(--rule);
-    border-radius:3px;background:var(--paper);color:var(--ink);width:100%;
+    font:inherit;font-size:14px;padding:9px 11px;border:1px solid var(--line);
+    border-radius:7px;background:var(--surface-2);color:var(--text);width:100%;
   }
-  .controls input:focus-visible,.controls select:focus-visible,button:focus-visible{outline:2px solid var(--focus);outline-offset:1px}
+  .controls input::placeholder{color:#6c6c63}
+  input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
   button{
-    font:inherit;font-weight:600;font-size:14px;padding:8px 18px;align-self:flex-end;
-    background:var(--ink);color:var(--paper);border:0;border-radius:3px;cursor:pointer;
+    font:inherit;font-weight:600;font-size:14px;padding:10px 20px;
+    background:var(--text);color:#15150f;border:0;border-radius:7px;cursor:pointer;
   }
-  button:hover{background:var(--focus)}
-  button[disabled]{opacity:.5;cursor:default}
+  button:hover{background:var(--text-2)}
+  button[disabled]{opacity:.45;cursor:default}
 
-  /* ---- hero: newest detection ---- */
-  .latest{background:var(--paper);border:1px solid var(--rule);border-left:5px solid var(--rule);border-radius:4px;padding:22px;margin-bottom:20px}
-  .latest .cue{font-size:12px;color:var(--muted);margin-bottom:10px}
-  .latest .domain{
-    font-family:"JetBrains Mono",monospace;font-weight:700;
-    font-size:clamp(20px,4.2vw,34px);line-height:1.2;word-break:break-all;
-  }
-  .latest .meta{margin-top:12px;font-size:13px;color:var(--muted);display:flex;flex-wrap:wrap;gap:6px 20px}
-  .latest .meta b{color:var(--ink);font-weight:600}
-  .latest.critical{border-left-color:var(--critical)}
-  .latest.high{border-left-color:var(--high)}
-  .latest.medium{border-left-color:var(--medium)}
-  .latest.low{border-left-color:var(--low)}
+  /* ---------- hero ---------- */
+  .hero{display:grid;grid-template-columns:auto 1fr;gap:22px;align-items:center;padding:22px;margin-bottom:16px;position:relative;overflow:hidden}
+  .hero::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--sev,var(--low))}
+  .figure{font-size:clamp(46px,9vw,68px);font-weight:700;line-height:.95;letter-spacing:-.03em;color:var(--sev,var(--low))}
+  .figure small{display:block;font-size:11.5px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--text-3);margin-top:8px}
+  .hero-main{min-width:0}
+  .cue{font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-3);margin-bottom:8px}
+  .hero-domain{font-size:clamp(19px,3.4vw,30px);font-weight:700;line-height:1.2;word-break:break-all}
+  .hero-meta{margin-top:12px;display:flex;flex-wrap:wrap;gap:6px 22px;font-size:12.5px;color:var(--text-3)}
+  .hero-meta b{color:var(--text-2);font-weight:600}
 
-  /* ---- run summary strip ---- */
-  .strip{display:flex;flex-wrap:wrap;gap:0;border:1px solid var(--rule);border-radius:4px;overflow:hidden;background:var(--paper);margin-bottom:20px}
-  .strip div{flex:1 1 130px;padding:12px 16px;border-right:1px solid var(--rule)}
-  .strip div:last-child{border-right:0}
-  .strip .n{font-family:"JetBrains Mono",monospace;font-size:22px;font-weight:700}
-  .strip .k{font-size:12px;color:var(--muted)}
+  /* ---------- stat tiles ---------- */
+  .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px}
+  .tile{padding:14px 16px}
+  .tile .v{font-size:27px;font-weight:600;letter-spacing:-.02em;line-height:1.1}
+  .tile .k{font-size:11.5px;color:var(--text-3);margin-top:3px}
 
-  /* ---- ledger ---- */
-  .ledger{background:var(--paper);border:1px solid var(--rule);border-radius:4px;overflow:hidden}
-  .row{display:grid;grid-template-columns:52px 1fr auto;gap:14px;align-items:start;
-       padding:14px 16px 14px 12px;border-top:1px solid var(--rule);border-left:5px solid transparent}
-  .row:first-child{border-top:0}
-  .row.critical{border-left-color:var(--critical)}
-  .row.high{border-left-color:var(--high)}
-  .row.medium{border-left-color:var(--medium)}
-  .row.low{border-left-color:var(--low)}
-  .score{font-family:"JetBrains Mono",monospace;font-size:19px;font-weight:700;text-align:right}
-  .row.critical .score{color:var(--critical)}
-  .row.high .score{color:var(--high)}
-  .row.medium .score{color:var(--medium)}
-  .row.low .score{color:var(--low)}
-  .dom{font-family:"JetBrains Mono",monospace;font-size:15px;font-weight:500;word-break:break-all}
-  .why{margin-top:5px;font-size:13px;color:var(--muted)}
-  .why li{margin-left:16px}
-  .when{font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--muted);white-space:nowrap}
-  .empty{padding:40px 16px;text-align:center;color:var(--muted)}
-  .empty b{display:block;color:var(--ink);font-size:16px;margin-bottom:4px}
-  .err{background:#fdf3f2;border-color:var(--critical);color:var(--critical);padding:14px 16px;border:1px solid var(--critical);border-radius:4px;margin-bottom:20px;font-size:14px}
-  footer{margin-top:28px;font-size:12px;color:var(--muted);text-align:center}
+  /* ---------- severity meter (part-to-whole) ---------- */
+  .board{padding:16px 18px 18px;margin-bottom:16px}
+  .board h2{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text-3);margin-bottom:13px}
+  .meter{display:flex;width:100%;height:16px;border-radius:5px;overflow:hidden;background:var(--surface-2)}
+  .meter i{display:block;height:100%;box-shadow:0 0 0 2px var(--surface-1)}
+  .meter i:first-child{box-shadow:none}
+  .legend{display:flex;flex-wrap:wrap;gap:8px 20px;margin-top:14px}
+  .lg{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--text-2);text-transform:capitalize}
+  .lg b{color:var(--text);font-weight:600;font-variant-numeric:tabular-nums}
+  .lg .off{color:var(--text-3);font-weight:400;text-transform:none}
+
+  /* severity glyphs: the secondary channel, so hue never carries meaning alone */
+  .g{width:10px;height:10px;flex:none;display:block}
+  .g.critical{background:var(--critical);clip-path:polygon(50% 0,100% 100%,0 100%)}
+  .g.high{background:var(--high);clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%)}
+  .g.medium{background:var(--medium)}
+  .g.low{background:var(--low);border-radius:50%}
+
+  /* ---------- detection triad ---------- */
+  .triad{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:10px;margin-bottom:16px}
+  .det{padding:15px 16px}
+  .det .n{font-size:23px;font-weight:600;letter-spacing:-.02em}
+  .det .t{font-size:13px;font-weight:600;margin-top:2px}
+  .det .d{font-size:12px;color:var(--text-3);margin-top:5px;line-height:1.45}
+
+  /* ---------- ledger ---------- */
+  .ledger{overflow:hidden}
+  .ledger-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 16px;border-bottom:1px solid var(--line)}
+  .ledger-head h2{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text-3)}
+  .ledger-head .ct{font-size:11.5px;color:var(--text-3)}
+  .row{display:grid;grid-template-columns:44px 1fr auto;gap:14px;align-items:start;
+       padding:14px 16px;border-top:1px solid var(--line-soft)}
+  .row:first-of-type{border-top:0}
+  .row:hover{background:var(--surface-2)}
+  .score{font-size:18px;font-weight:700;text-align:right;font-variant-numeric:tabular-nums;color:var(--sev)}
+  .dom{font-size:14.5px;font-weight:500;word-break:break-all}
+  .tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+  .tag{font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--text-2);
+       background:var(--surface-2);border:1px solid var(--line);border-radius:999px;padding:2px 9px;display:flex;align-items:center;gap:6px}
+  .why{margin-top:8px;font-size:12.5px;color:var(--text-3);line-height:1.5}
+  .why li{margin-left:15px;margin-top:2px}
+  .when{font-size:11.5px;color:var(--text-3);white-space:nowrap;text-align:right}
+
+  .empty{padding:36px 20px;text-align:center}
+  .empty b{display:block;font-size:16px;margin-bottom:5px}
+  .empty p{color:var(--text-3);font-size:13px;max-width:52ch;margin:0 auto}
+  .err{background:#2a1614;border:1px solid var(--critical);color:#ffb4ab;padding:13px 15px;border-radius:var(--radius);margin-bottom:16px;font-size:13.5px}
+  footer{margin-top:26px;font-size:11.5px;color:var(--text-3);text-align:center;line-height:1.7}
+
   @media (prefers-reduced-motion:no-preference){
-    .latest{animation:settle .4s ease-out}
-    @keyframes settle{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+    .beacon::after{animation:ping 2.6s ease-out infinite}
+    @keyframes ping{0%{transform:scale(.7);opacity:.7}70%{transform:scale(1.7);opacity:0}100%{opacity:0}}
+    .hero{animation:settle .4s ease-out}
+    @keyframes settle{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:none}}
   }
-  @media(max-width:560px){
-    .row{grid-template-columns:44px 1fr;gap:10px}
-    .when{grid-column:2;margin-top:4px}
+  @media(max-width:620px){
+    .tagline{display:none}
+    .hero{grid-template-columns:1fr;gap:14px}
+    .row{grid-template-columns:38px 1fr;gap:11px}
+    .when{grid-column:2;text-align:left;margin-top:5px}
   }
 </style>
 </head>
@@ -110,11 +164,18 @@
 <div class="wrap">
 
   <div class="masthead">
-    <div class="mark">Sentinel<span>NG</span></div>
-    <div class="clock" id="clock">not connected</div>
+    <div class="brand">
+      <span class="beacon"><i></i></span>
+      <span class="mark">Sentinel<span>NG</span></span>
+      <span class="tagline">Your estate, from the attacker's side of the fence</span>
+    </div>
+    <div class="head-right">
+      <span class="stamp"><span class="g low"></span>100% passive &middot; <b>public CT logs only</b></span>
+      <span class="clock" id="clock">not connected</span>
+    </div>
   </div>
 
-  <div class="controls">
+  <div class="controls panel">
     <label>Apify dataset ID
       <input id="dataset" placeholder="e.g. aBcD1234efGh" autocomplete="off">
     </label>
@@ -135,31 +196,75 @@
   <div id="error"></div>
   <div id="latest"></div>
   <div id="strip"></div>
-  <div class="ledger" id="ledger">
-    <div class="empty"><b>Nothing loaded yet</b>Enter your dataset ID and load findings.</div>
+  <div id="board"></div>
+  <div id="triad"></div>
+
+  <div class="panel ledger" id="ledger">
+    <div class="empty">
+      <b>Nothing loaded yet</b>
+      <p>Enter the dataset ID from your Actor run. SentinelNG reads public Certificate
+         Transparency logs and reports what an attacker can already see: forgotten
+         assets, certificates from an issuer your asset has never used, and lookalike
+         domains built to phish your customers.</p>
+    </div>
   </div>
 
-  <footer>Data source: public Certificate Transparency logs via crt.sh</footer>
+  <footer>
+    Source: public Certificate Transparency logs via crt.sh<br>
+    Nothing is scanned, probed or touched. Every finding below was already public.
+  </footer>
 </div>
 
 <script>
 const $ = id => document.getElementById(id);
 const ORDER = {critical:0, high:1, medium:2, low:3};
 const MIN = {all:3, medium:2, high:1, critical:0};
+const SEVS = ["critical","high","medium","low"];
+const TYPES = {
+  own_asset_risk:{t:"Forgotten assets", d:"Non-production hosts still certified and visible. The Sterling Bank signature."},
+  cert_anomaly:{t:"Certificate anomalies", d:"An asset answering to a CA that has never issued for it. The GTBank signature."},
+  impersonation:{t:"Impersonation", d:"Lookalike domains you do not own, built to phish your customers."}
+};
 let items = [];
 
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => (
-  {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-
+  {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]
+));
 function ago(ts){
   if(!ts) return "unknown";
   const t = Date.parse(ts.endsWith("Z") ? ts : ts + "Z");
-  if(Number.isNaN(t)) return "unknown";
+  if(isNaN(t)) return "unknown";
   const m = Math.floor((Date.now() - t) / 60000);
-  if(m < 1) return "just now";
   if(m < 60) return m + "m ago";
   if(m < 1440) return Math.floor(m/60) + "h ago";
-  return Math.floor(m/1440) + "d ago";
+  const d = Math.floor(m/1440);
+  if(d < 365) return d + "d ago";
+  return (d/365).toFixed(1) + "y ago";
+}
+const plural = (n,w) => n + " " + w + (n === 1 ? "" : "s");
+// crt.sh omits entry_timestamp on these queries, so date the finding by the
+// certificate itself. The scorer already falls back the same way.
+const issued = i => i.not_before || i.entry_timestamp;
+
+// Issuer DNs quote any organisation name containing a comma, so split on
+// commas that sit outside quotes. Otherwise "cPanel, Inc." renders as "cPanel.
+function issuerOrg(dn){
+  const m = /O=("([^"]*)"|[^,]*)/i.exec(dn || "");
+  if(!m) return "unknown";
+  return (m[2] !== undefined ? m[2] : m[1]).trim() || "unknown";
+}
+
+// What the issuer MEANS depends on the finding type, so the label has to say
+// which. On an own_asset_risk the CA is not the problem: that score comes from
+// hostname and exposure signals, and printing the issuer bare reads as an
+// accusation against a legitimate CA that did nothing wrong. There the
+// certificate is simply how we found the asset. On a cert_anomaly the issuer IS
+// the finding. On an impersonation a free CA is one of the scored signals.
+function issuerLine(f){
+  const org = esc(issuerOrg(f.issuer));
+  if(f.finding_type === "own_asset_risk")
+    return `<span>Discovered via certificate from <b>${org}</b></span>`;
+  return `<span>Issuer <b>${org}</b></span>`;
 }
 
 async function load(){
@@ -200,42 +305,95 @@ function render(){
     seenKey.add(k); return true;
   });
   const shown = deduped.filter(i => (ORDER[i.severity] ?? 9) <= cut);
+  const count = s => deduped.filter(i => i.severity === s).length;
 
-  // hero
+  // ---- hero. The one figure this view leads with is the top risk score.
   const top = shown[0];
   $("latest").innerHTML = top ? `
-    <div class="latest ${esc(top.severity)}">
-      <div class="cue">Highest risk finding</div>
-      <div class="domain">${esc(top.domain)}</div>
-      <div class="meta">
-        <span>Risk <b>${esc(top.risk_score)}</b> of 100</span>
-        <span>Severity <b>${esc(top.severity)}</b></span>
-        <span>First seen <b>${esc(ago(top.entry_timestamp))}</b></span>
-        <span>Issuer <b>${esc((top.issuer||"").replace(/^.*O=/,"").split(",")[0] || "unknown")}</b></span>
+    <div class="panel hero" style="--sev:var(--${esc(top.severity)})">
+      <div class="figure">${esc(top.risk_score)}<small>risk of 100</small></div>
+      <div class="hero-main">
+        <div class="cue">Highest risk finding</div>
+        <div class="hero-domain mono">${esc(top.domain)}</div>
+        <div class="tags">
+          <span class="tag"><span class="g ${esc(top.severity)}"></span>${esc(top.severity)}</span>
+          <span class="tag">${esc((top.finding_type||"").replace(/_/g," "))}</span>
+          ${top.cert_count ? `<span class="tag">${esc(plural(top.cert_count,"certificate"))}</span>` : ""}
+          ${top.hostname_count > 1 ? `<span class="tag">${esc(plural(top.hostname_count,"hostname"))}</span>` : ""}
+        </div>
+        <div class="hero-meta">
+          <span>Certificate issued <b>${esc(ago(issued(top)))}</b></span>
+          ${issuerLine(top)}
+        </div>
       </div>
     </div>` : "";
 
-  // summary strip
-  const count = s => items.filter(i => i.severity === s).length;
-  $("strip").innerHTML = items.length ? `
-    <div class="strip">
-      <div><div class="n">${items.length}</div><div class="k">Total findings</div></div>
-      <div><div class="n" style="color:var(--critical)">${count("critical")}</div><div class="k">Critical</div></div>
-      <div><div class="n" style="color:var(--high)">${count("high")}</div><div class="k">High</div></div>
-      <div><div class="n" style="color:var(--medium)">${count("medium")}</div><div class="k">Medium</div></div>
+  // ---- stat tiles
+  const assets = new Set(deduped.map(i => i.domain)).size;
+  const certs = deduped.reduce((n,i) => n + (i.cert_count || 1), 0);
+  const acute = count("critical") + count("high");
+  $("strip").innerHTML = deduped.length ? `
+    <div class="tiles">
+      <div class="panel tile"><div class="v">${deduped.length}</div><div class="k">Findings</div></div>
+      <div class="panel tile"><div class="v">${assets}</div><div class="k">Assets involved</div></div>
+      <div class="panel tile"><div class="v">${certs.toLocaleString()}</div><div class="k">Certificates observed</div></div>
+      <div class="panel tile"><div class="v" style="color:${acute ? "var(--high)" : "var(--text)"}">${acute}</div><div class="k">Need attention now</div></div>
     </div>` : "";
 
-  // ledger
-  $("ledger").innerHTML = shown.length ? shown.map(i => `
-    <div class="row ${esc(i.severity)}">
+  // ---- severity meter. Part-to-whole, so one stacked bar, legend always present.
+  const total = deduped.length;
+  $("board").innerHTML = total ? `
+    <div class="panel board">
+      <h2>Severity of what is exposed</h2>
+      <div class="meter" role="img" aria-label="${SEVS.map(s => count(s) + " " + s).join(", ")}">
+        ${SEVS.filter(s => count(s) > 0).map(s =>
+          `<i style="width:${(count(s)/total*100).toFixed(2)}%;background:var(--${s})" title="${count(s)} ${s}"></i>`
+        ).join("")}
+      </div>
+      <div class="legend">
+        ${SEVS.map(s => `<span class="lg"><span class="g ${s}"></span>${s} <b>${count(s)}</b>${
+          count(s) === 0 ? ' <span class="off">none</span>' : ""
+        }</span>`).join("")}
+      </div>
+    </div>` : "";
+
+  // ---- what the tool is actually looking for
+  $("triad").innerHTML = deduped.length ? `
+    <div class="triad">
+      ${Object.keys(TYPES).map(k => {
+        const v = TYPES[k];
+        const n = deduped.filter(i => i.finding_type === k).length;
+        return `<div class="panel det">
+          <div class="n" style="color:${n ? "var(--text)" : "var(--text-3)"}">${n}</div>
+          <div class="t">${esc(v.t)}</div>
+          <div class="d">${esc(v.d)}</div>
+        </div>`;
+      }).join("")}
+    </div>` : "";
+
+  // ---- ledger
+  const body = shown.length ? shown.map(i => `
+    <div class="row" style="--sev:var(--${esc(i.severity)})">
       <div class="score">${esc(i.risk_score)}</div>
       <div>
-        <div class="dom">${esc(i.domain)} <span style="font-size:11px;color:var(--muted);font-weight:400">${esc((i.finding_type||"").replace(/_/g," "))}</span></div>
+        <div class="dom mono">${esc(i.domain)}</div>
+        <div class="tags">
+          <span class="tag"><span class="g ${esc(i.severity)}"></span>${esc(i.severity)}</span>
+          <span class="tag">${esc((i.finding_type||"").replace(/_/g," "))}</span>
+          ${i.cert_count > 1 ? `<span class="tag">${esc(plural(i.cert_count,"cert"))}</span>` : ""}
+          ${i.hostname_count > 1 ? `<span class="tag">${esc(plural(i.hostname_count,"hostname"))}</span>` : ""}
+        </div>
         <ul class="why">${(i.reasons||[]).map(r => `<li>${esc(r)}</li>`).join("")}</ul>
       </div>
-      <div class="when">${esc(ago(i.entry_timestamp))}</div>
+      <div class="when">${esc(ago(issued(i)))}</div>
     </div>`).join("")
-    : `<div class="empty"><b>No findings at this severity</b>Nothing impersonating this brand was logged in the window.</div>`;
+    : `<div class="empty"><b>Nothing at this severity</b><p>No finding in the loaded run meets this filter. Lower it to see the full inventory.</p></div>`;
+
+  $("ledger").innerHTML = (deduped.length ? `
+    <div class="ledger-head">
+      <h2>Findings</h2>
+      <span class="ct">${shown.length} of ${deduped.length} shown</span>
+    </div>` : "") + body;
 }
 
 $("load").addEventListener("click", load);

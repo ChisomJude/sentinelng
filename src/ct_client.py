@@ -41,22 +41,35 @@ def parse_ct_timestamp(value: str | None) -> datetime | None:
     return None
 
 
-def extract_domains(entry: dict[str, Any]) -> set[str]:
+def extract_domains(entry: dict[str, Any]) -> dict[str, bool]:
     """
-    Pull every hostname from a crt.sh entry.
+    Pull every hostname from a crt.sh entry, keeping its wildcard flag.
+
+    Returns {hostname: is_wildcard}.
 
     crt.sh puts SANs in name_value (newline separated) and the primary name in
     common_name. Both must be read: sometimes the organisation name lands in
     name_value and the real hostname is only in common_name. Reading name_value
     alone was a real bug that made 394 certificates look like 1 domain.
+
+    The wildcard flag has to be captured HERE, because the next thing this
+    function does is strip the "*." prefix, and after that the fact is gone.
+    That loss was real: the estate sweep was fetching wildcard certificates
+    and silently discarding the most useful thing about them, which is how
+    much of the estate a single stolen key would cover.
     """
-    names: set[str] = set()
+    names: dict[str, bool] = {}
     for field in ("name_value", "common_name"):
         raw = entry.get(field) or ""
         for line in raw.split("\n"):
-            host = line.strip().lower().lstrip("*.")
+            candidate = line.strip().lower()
+            wildcard = candidate.startswith("*.")
+            host = candidate.lstrip("*.")
             if host and " " not in host and "." in host:
-                names.add(host)
+                # One certificate routinely lists both example.com and
+                # *.example.com, and both reduce to the same host here. OR
+                # the flag so the wildcard survives pairing with a plain name.
+                names[host] = names.get(host, False) or wildcard
     return names
 
 
@@ -110,9 +123,10 @@ async def query_token(client: httpx.AsyncClient, token: str) -> list[dict[str, A
     records: list[dict[str, Any]] = []
     for entry in entries:
         issuer = entry.get("issuer_name", "unknown")
-        for host in extract_domains(entry):
+        for host, is_wildcard in extract_domains(entry).items():
             records.append({
                 "domain": host,
+                "is_wildcard": is_wildcard,
                 "matched_token": token,
                 "issuer": issuer,
                 "crtsh_id": entry.get("id"),

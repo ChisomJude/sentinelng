@@ -5,7 +5,10 @@ finding types. All offline, using fixture records rather than live CT data.
 
 from datetime import datetime, timedelta, timezone
 
+from src.ct_client import extract_domains
 from src.discovery import (
+    NOTABLE_LABELS,
+    RISKY_LABELS,
     contains_homoglyph,
     fold_homoglyphs,
     generate_tokens,
@@ -16,7 +19,13 @@ from src.discovery import (
     registrable_root,
     risky_labels_in,
 )
-from src.scoring import _issuer_org, assess, score_impersonation, score_own_asset
+from src.scoring import (
+    WILDCARD_BLAST_RADIUS,
+    _issuer_org,
+    assess,
+    score_impersonation,
+    score_own_asset,
+)
 
 CYRILLIC_A = "\u0430"
 CYRILLIC_E = "\u0435"
@@ -144,7 +153,7 @@ def test_rogue_cert_not_masked_by_itself():
     findings, _ = assess(records, ["sterling.ng"], min_score=35)
     anomalies = [f for f in findings if f["finding_type"] == "cert_anomaly"]
     assert anomalies
-    assert any("never issued for this asset" in r.lower() for r in anomalies[0]["reasons"])
+    assert any("established certificates come from" in r.lower() for r in anomalies[0]["reasons"])
 
 
 def test_findings_carry_reasons():
@@ -190,7 +199,7 @@ def test_merged_finding_keeps_strongest_evidence():
     anomalies = [f for f in findings if f["finding_type"] == "cert_anomaly"]
     assert len(anomalies) == 1
     assert anomalies[0]["domain"] == "sterling.ng"
-    assert any("never issued for this asset" in r.lower() for r in anomalies[0]["reasons"])
+    assert any("established certificates come from" in r.lower() for r in anomalies[0]["reasons"])
 
 
 def test_healthy_asset_with_expired_history_is_not_flagged():
@@ -289,7 +298,10 @@ def test_same_ca_is_one_baseline_entry_not_two():
         rec("c.sterling.ng", issuer=quoted, days_valid=365, cid=3),
     ]
     findings, _ = assess(records, ["sterling.ng"], min_score=20)
-    unexpected = [r for f in findings for r in f["reasons"] if "unexpected issuer" in r.lower()]
+    unexpected = [
+        r for f in findings for r in f["reasons"]
+        if "established certificates come from" in r.lower()
+    ]
     assert not unexpected
 
 
@@ -357,3 +369,172 @@ def test_nigerian_second_level_domains_resolve_to_the_brand():
     assert registrable_root("zenith.co.uk") == "zenith"
     assert registrable_root("sterling.ng") == "sterling"
     assert "com" not in generate_tokens(["firstbank.com.ng"])
+
+
+# ------------------------------------------- unexpected issuer: recency + host
+
+def _history_then(host, rogue_issuer, rogue_age_days, hist_age_days=1500):
+    """A host with an established commercial CA, then one cert from elsewhere."""
+    return [
+        rec(host, issuer="C=US, O=DigiCert Inc", days_valid=365, cid=1, age_days=hist_age_days),
+        rec(host, issuer=rogue_issuer, days_valid=89, cid=2, age_days=rogue_age_days),
+    ]
+
+
+def test_old_free_cert_on_marketing_subdomain_is_not_high():
+    # The exact gtbank.com false positive: campaign.gtbank.com carried a Let's
+    # Encrypt cert 1002 days old and scored 55 high. A migration that happened
+    # nearly three years ago is not an incident.
+    records = _history_then("campaign.sterling.ng", "C=US, O=Let's Encrypt", 1002)
+    findings, _ = assess(records, ["sterling.ng"], min_score=20)
+    anomalies = [f for f in findings if f["finding_type"] == "cert_anomaly"]
+    assert anomalies
+    assert anomalies[0]["severity"] == "low"
+    assert anomalies[0]["risk_score"] == 20
+    joined = " ".join(anomalies[0]["reasons"]).lower()
+    assert "migration" in joined
+    assert "compromise" not in joined
+
+
+def test_fresh_free_cert_on_apex_is_critical():
+    # The GTBank shape the tool exists to catch: the brand's own apex suddenly
+    # answering to a CA it has never used.
+    records = _history_then("sterling.ng", "C=US, O=Let's Encrypt", 0.5)
+    findings, _ = assess(records, ["sterling.ng"], min_score=20)
+    anomalies = [f for f in findings if f["finding_type"] == "cert_anomaly"]
+    assert anomalies
+    assert anomalies[0]["severity"] == "critical"
+    assert "compromise" in " ".join(anomalies[0]["reasons"]).lower()
+
+
+def test_fresh_free_cert_on_auth_host_is_high():
+    # Not the apex, but where customers type their password.
+    records = _history_then("login.sterling.ng", "C=US, O=Let's Encrypt", 0.5)
+    findings, _ = assess(records, ["sterling.ng"], min_score=20)
+    anomalies = [f for f in findings if f["finding_type"] == "cert_anomaly"]
+    assert anomalies
+    assert anomalies[0]["severity"] == "high"
+
+
+def test_recency_alone_does_not_escalate():
+    # A brand new cert on an ordinary subdomain is routine automation.
+    records = _history_then("campaign.sterling.ng", "C=US, O=Let's Encrypt", 0.5)
+    findings, _ = assess(records, ["sterling.ng"], min_score=20)
+    anomalies = [f for f in findings if f["finding_type"] == "cert_anomaly"]
+    assert anomalies
+    assert anomalies[0]["severity"] == "low"
+
+
+def test_sensitive_host_alone_does_not_escalate():
+    # The apex matters, but not for a CA change that happened years ago.
+    records = _history_then("sterling.ng", "C=US, O=Let's Encrypt", 1200)
+    findings, _ = assess(records, ["sterling.ng"], min_score=20)
+    anomalies = [f for f in findings if f["finding_type"] == "cert_anomaly"]
+    assert anomalies
+    assert anomalies[0]["severity"] == "low"
+
+
+def test_every_gtbank_marketing_subdomain_drops_out_of_high():
+    # All nine ordinary subdomains from the audited run, at their real ages.
+    live = [("csr", 982), ("635", 982), ("sks", 997), ("campaign", 1002),
+            ("fashionweekend", 1221), ("foodanddrink", 1512),
+            ("shop.fashionweekend", 2075), ("prime", 2100), ("www", 1518)]
+    for label, age in live:
+        records = _history_then(f"{label}.sterling.ng", "C=US, O=Let's Encrypt", age,
+                                hist_age_days=age + 400)
+        findings, _ = assess(records, ["sterling.ng"], min_score=20)
+        anomalies = [f for f in findings if f["finding_type"] == "cert_anomaly"]
+        assert anomalies, label
+        assert anomalies[0]["severity"] not in ("high", "critical"), f"{label} still escalates"
+
+
+# ------------------------------------------------------- wildcard certificates
+
+def _entry(*names):
+    """A crt.sh entry whose SAN list holds `names`. crt.sh separates them with newlines."""
+    return {"name_value": chr(10).join(names), "common_name": names[0]}
+
+
+def test_wildcard_flag_survives_prefix_stripping():
+    # The audit found this fact was fetched and thrown away: the "*." prefix was
+    # stripped one line after it arrived, and nothing recorded that it had been there.
+    assert extract_domains(_entry("*.gtbank.com")) == {"gtbank.com": True}
+    assert extract_domains(_entry("www.gtbank.com")) == {"www.gtbank.com": False}
+
+
+def test_wildcard_survives_pairing_with_the_plain_name():
+    # One certificate routinely carries both forms, and both reduce to one host.
+    # The wildcard must not be erased by whichever name is read second.
+    assert extract_domains(_entry("*.gtbank.com", "gtbank.com")) == {"gtbank.com": True}
+    assert extract_domains(_entry("gtbank.com", "*.gtbank.com")) == {"gtbank.com": True}
+
+
+def test_wildcard_flag_reaches_a_mixed_san_list_correctly():
+    got = extract_domains(_entry("*.a.gtbank.com", "b.gtbank.com"))
+    assert got == {"a.gtbank.com": True, "b.gtbank.com": False}
+
+
+def test_wildcard_raises_the_score_of_a_forgotten_asset():
+    # A forgotten pilot host is bad. A forgotten pilot host holding a key that
+    # authenticates the whole domain is worse, and the score should say so.
+    plain = score_own_asset(rec("pilot.sterling.ng"))
+    wild = score_own_asset(dict(rec("pilot.sterling.ng"), is_wildcard=True))
+    assert wild["risk_score"] == plain["risk_score"] + WILDCARD_BLAST_RADIUS
+    assert any("wildcard" in r.lower() for r in wild["reasons"])
+    assert not any("wildcard" in r.lower() for r in plain["reasons"])
+
+
+def test_wildcard_is_recorded_as_a_signal_either_way():
+    assert score_own_asset(dict(rec("x.sterling.ng"), is_wildcard=True))["signals"]["is_wildcard"] is True
+    assert score_own_asset(rec("x.sterling.ng"))["signals"]["is_wildcard"] is False
+
+
+def test_wildcard_alone_does_not_manufacture_a_finding():
+    # Wildcards are normal practice. On an ordinary host with no risky label the
+    # signal must colour a finding, not create one above the threshold.
+    records = [dict(rec("www.sterling.ng"), is_wildcard=True)]
+    findings, stats = assess(records, ["sterling.ng"], min_score=35)
+    assert not [f for f in findings if f["finding_type"] == "own_asset_risk"]
+    assert stats["below_threshold"] >= 1
+
+
+def test_wildcard_does_not_create_a_new_finding_type():
+    records = [dict(rec("pilot.sterling.ng"), is_wildcard=True)]
+    findings, _ = assess(records, ["sterling.ng"], min_score=20)
+    assert {f["finding_type"] for f in findings} <= {"own_asset_risk", "cert_anomaly", "impersonation"}
+    owned = [f for f in findings if f["finding_type"] == "own_asset_risk"]
+    assert owned and any("wildcard" in r.lower() for r in owned[0]["reasons"])
+
+
+# ---------------------------------------------------- label list hygiene (4a)
+
+def test_no_label_is_both_risky_and_notable():
+    # The general form of the bug. "vpn" sat in both lists, so a VPN host scored
+    # +40 and +20 for one fact and carried two near-duplicate reasons. Guarding
+    # the overlap rather than the single label stops it recurring with the next
+    # entry somebody adds to either list.
+    overlap = set(RISKY_LABELS) & set(NOTABLE_LABELS)
+    assert not overlap, f"labels in both lists double-score: {sorted(overlap)}"
+
+
+def test_vpn_host_scores_once_not_twice():
+    scored = score_own_asset(rec("vpn.sterling.ng"))
+    assert scored["risk_score"] == 40
+    assert scored["severity"] == "medium"
+    assert len([r for r in scored["reasons"] if "vpn" in r.lower()]) == 1
+    assert scored["signals"]["risky_labels"] == ["vpn"]
+    assert "notable_labels" not in scored["signals"]
+
+
+def test_vpn_is_still_treated_as_risky():
+    # Removing it from NOTABLE_LABELS must not quietly demote it out of scoring.
+    assert "vpn" in RISKY_LABELS
+    assert [lbl for lbl, _ in risky_labels_in("vpn.sterling.ng")] == ["vpn"]
+
+
+# ------------------------------------------------- dead parameter removed (4b)
+
+def test_score_own_asset_takes_only_a_record():
+    import inspect
+    params = list(inspect.signature(score_own_asset).parameters)
+    assert params == ["record"], f"unexpected signature: {params}"

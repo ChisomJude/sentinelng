@@ -54,10 +54,32 @@ SHARED_INFRA_SUFFIXES = [
 
 SEVERITY_BANDS = [(75, "critical"), (55, "high"), (35, "medium"), (0, "low")]
 
+# An unexpected issuer on its own is weak evidence. Scored alone at 55 it
+# produced ten high-severity findings on gtbank.com, every one on a certificate
+# between 982 and 3360 days old: marketing subdomains that moved to Let's
+# Encrypt years ago. Nine of the ten were ordinary subdomains. A CA change only
+# becomes an incident signal when it is RECENT and lands on a host that matters,
+# so the base is informational and the escalation carries the weight.
+UNEXPECTED_ISSUER_BASE = 20
+UNEXPECTED_ISSUER_ESCALATION = 40
+UNEXPECTED_ISSUER_APEX_BONUS = 15
+UNEXPECTED_ISSUER_RECENT_HOURS = 72
+
+# Labels where an unexpected certificate is worth waking someone for. Matched as
+# substrings so secure-login.example.com counts as well as login.example.com.
+SENSITIVE_LABELS = ("auth", "login", "secure")
+
 # A certificate that lapsed longer ago than this is treated as dead history
 # rather than a renewal failure. CT never forgets, so every long-decommissioned
 # name stays in the log forever and would otherwise alert forever.
 STALE_HISTORY_DAYS = 365
+
+# A wildcard certificate is convenience with a blast radius: one private key
+# authenticates every name under the domain, so a forgotten host holding one
+# is worth more attention than its own name suggests. Deliberately modest.
+# Wildcards are normal practice, not a defect, so this should colour a
+# finding rather than manufacture one on its own.
+WILDCARD_BLAST_RADIUS = 15
 
 
 def _tld(domain: str) -> str:
@@ -149,11 +171,49 @@ def _issuer_history_by_asset(
     return history
 
 
-def score_own_asset(record, reasons_prefix=None):
+def _issued_age_hours(record: dict[str, Any]) -> float | None:
+    """
+    Hours since the certificate's not_before, the moment it became usable.
+
+    Distinct from _cert_age_hours, which prefers the CT entry timestamp. For
+    judging whether a CA change is happening right now, the certificate's own
+    validity start is the honest clock, and crt.sh returns entry_timestamp as
+    null on the queries this Actor makes anyway.
+    """
+    ts = parse_ct_timestamp(record.get("not_before")) or parse_ct_timestamp(
+        record.get("entry_timestamp")
+    )
+    if not ts:
+        return None
+    return max((datetime.now(timezone.utc) - ts).total_seconds() / 3600.0, 0.0)
+
+
+def _is_apex(domain: str) -> bool:
+    """True when the hostname IS the registered domain, so it speaks for the brand."""
+    domain = (domain or "").lower()
+    return bool(domain) and domain == registrable_domain(domain)
+
+
+def _is_sensitive_host(domain: str) -> bool:
+    """
+    Hosts where an unexpected certificate justifies an alert rather than a note.
+
+    The apex itself, plus any hostname carrying an authentication label. A new
+    certificate on campaign.example.com is a hosting detail. The same
+    certificate on the apex or on login.example.com is how customer credentials
+    get intercepted.
+    """
+    domain = (domain or "").lower()
+    if _is_apex(domain):
+        return True
+    return any(tok in label for label in domain.split(".") for tok in SENSITIVE_LABELS)
+
+
+def score_own_asset(record):
     """Score a hostname the organisation owns, by how risky its name is."""
     domain = record["domain"]
     risky = risky_labels_in(domain)
-    score, reasons, signals = 0, list(reasons_prefix or []), {}
+    score, reasons, signals = 0, [], {}
 
     if risky:
         score += 40 + 10 * (len(risky) - 1)
@@ -167,6 +227,14 @@ def score_own_asset(record, reasons_prefix=None):
         for label, why in notable:
             reasons.append(f"Auxiliary service '{label}': {why}")
         signals["notable_labels"] = [lbl for lbl, _ in notable]
+
+    signals["is_wildcard"] = bool(record.get("is_wildcard"))
+    if record.get("is_wildcard"):
+        score += WILDCARD_BLAST_RADIUS
+        reasons.append(
+            "Covered by a wildcard certificate, so one stolen private key or one "
+            "compromised host authenticates every name under this domain"
+        )
 
     age = _cert_age_hours(record)
     if age is not None and age <= 168:
@@ -207,17 +275,46 @@ def score_cert_anomaly(record, asset_history, latest_expiry=None, ct_complete=Tr
     score, reasons, signals = 0, [], {"issuer_org": issuer_org}
 
     if asset_history and issuer_org and issuer_org not in asset_history:
-        score += 55
-        reasons.append(
-            f"Certificate from '{issuer_org}', which has never issued for this asset. "
-            f"Its established certificates come from: {', '.join(sorted(asset_history))}. "
-            f"A switch away from an asset's own long-standing CA is the GTBank "
-            f"signature: possible domain or DNS compromise."
-        )
-        age = _cert_age_hours(record)
-        if age is not None and age <= 48:
-            score += 15
-            reasons.append("Unexpected certificate is less than 48 hours old")
+        age_hours = _issued_age_hours(record)
+        recent = age_hours is not None and age_hours <= UNEXPECTED_ISSUER_RECENT_HOURS
+        sensitive = _is_sensitive_host(record["domain"])
+        established = ", ".join(sorted(asset_history))
+        signals["issuer_change_recent"] = recent
+        signals["sensitive_host"] = sensitive
+        signals["cert_age_hours"] = round(age_hours, 1) if age_hours is not None else None
+
+        score += UNEXPECTED_ISSUER_BASE
+
+        if recent and sensitive:
+            # Recent AND on a host that matters. This is the GTBank shape.
+            score += UNEXPECTED_ISSUER_ESCALATION
+            reasons.append(
+                f"Certificate from '{issuer_org}' became valid in the last "
+                f"{UNEXPECTED_ISSUER_RECENT_HOURS} hours, on a host that carries "
+                f"authentication or the brand itself. This asset's established "
+                f"certificates come from: {established}. Possible domain or DNS "
+                f"compromise: verify this certificate now."
+            )
+            if _is_apex(record["domain"]):
+                score += UNEXPECTED_ISSUER_APEX_BONUS
+                reasons.append(
+                    "The certificate covers the apex domain, so it speaks for the "
+                    "whole brand rather than one host"
+                )
+        else:
+            # Either old, or on a host where a CA change is routine. Say so
+            # plainly: claiming compromise here is what burned the gtbank run.
+            age_note = (
+                f"about {int(age_hours / 24)} days old"
+                if age_hours is not None
+                else "of unknown age"
+            )
+            reasons.append(
+                f"Certificate from '{issuer_org}', which has not issued for this asset "
+                f"before. Its established certificates come from: {established}. The "
+                f"certificate is {age_note}, so this reads as a historical CA change, "
+                f"most likely a hosting or platform migration. Informational."
+            )
 
     days = _days_until_expiry(record)
     if latest_expiry is not None:
