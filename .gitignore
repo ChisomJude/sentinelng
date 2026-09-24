@@ -7,3 +7,8 @@ apify_storage/
 node_modules/
 .DS_Store
 AUDIT.MD
+
+# Added by Apify CLI
+storage
+node_modules
+.venv

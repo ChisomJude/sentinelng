@@ -1,0 +1,19 @@
+{
+  "actorOutputSchemaVersion": 1,
+  "title": "SentinelNG run output",
+  "description": "Security findings from the run and its summary.",
+  "properties": {
+    "findings": {
+      "type": "string",
+      "title": "Security findings",
+      "description": "New findings detected in this run. Each dataset item describes one asset or impersonation domain.",
+      "template": "{{links.apiDefaultDatasetUrl}}/items"
+    },
+    "runSummary": {
+      "type": "string",
+      "title": "Run summary",
+      "description": "Counts, completion status, and finding breakdown for this run.",
+      "template": "{{links.apiDefaultKeyValueStoreUrl}}/records/RUN_SUMMARY"
+    }
+  }
+}
