@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SentinelNG</title>
+<link rel="icon" type="image/jpeg" href="logo.jpg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
@@ -28,6 +29,10 @@
     --medium:#fab219;
     --low:#6e93b8;
 
+    /* Brand green, taken from the logo wordmark. Used on the NG and nowhere
+       else: it must never be mistaken for a severity or a data series. */
+    --brand:#2ecc71;
+
     --focus:#5aa0ff;
     --radius:10px;
   }
@@ -49,11 +54,24 @@
   /* ---------- masthead ---------- */
   .masthead{display:flex;flex-wrap:wrap;gap:12px 18px;align-items:center;justify-content:space-between;margin-bottom:18px}
   .brand{display:flex;align-items:center;gap:11px;min-width:0}
-  .beacon{position:relative;width:11px;height:11px;flex:none}
-  .beacon i{position:absolute;inset:0;border-radius:50%;background:var(--low);display:block}
-  .beacon::after{content:"";position:absolute;inset:-5px;border-radius:50%;border:1px solid var(--low);opacity:.55}
+  /* The supplied logo is artwork on a light ground, so it cannot sit directly
+     on a dark surface: its navy shield would vanish. Presenting the shield as
+     a rounded light tile keeps the brand colours exactly as drawn and reads as
+     a deliberate app mark. Background-size and position crop the 1600x872
+     source to just the shield, at true aspect ratio, with no image editing. */
+  .logo{
+    width:36px;height:38px;flex:none;border-radius:9px;
+    background-image:url("logo.jpg");
+    background-size:183px 100px;
+    background-position:-74px -21px;
+    background-repeat:no-repeat;
+    box-shadow:0 0 0 1px var(--line), 0 2px 8px rgba(0,0,0,.35);
+  }
+  .beacon{position:relative;width:8px;height:8px;flex:none}
+  .beacon i{position:absolute;inset:0;border-radius:50%;background:var(--brand);display:block}
+  .beacon::after{content:"";position:absolute;inset:-4px;border-radius:50%;border:1px solid var(--brand);opacity:.55}
   .mark{font-size:20px;font-weight:700;letter-spacing:-.02em;white-space:nowrap}
-  .mark span{font-weight:400;color:var(--text-3)}
+  .mark span{font-weight:700;color:var(--brand)}
   .tagline{font-size:12.5px;color:var(--text-3);border-left:1px solid var(--line);padding-left:14px}
   .head-right{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
   .stamp{display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--text-2);
@@ -165,8 +183,9 @@
 
   <div class="masthead">
     <div class="brand">
-      <span class="beacon"><i></i></span>
+      <span class="logo" role="img" aria-label="SentinelNG logo"></span>
       <span class="mark">Sentinel<span>NG</span></span>
+      <span class="beacon" title="monitoring live"><i></i></span>
       <span class="tagline">Your estate, from the attacker's side of the fence</span>
     </div>
     <div class="head-right">
