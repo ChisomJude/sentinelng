@@ -4,7 +4,11 @@
 
 External attack surface monitoring for financial institutions, built on public Certificate Transparency logs. Give it your domain. It shows you your estate the way an attacker sees it, using only public data, without ever touching your systems.
 
+Live dashboard: **https://sentinelng-three.vercel.app/**
+
 Live on Apify Store: `apify.com/godstimechisom/sentinel`
+
+Source: **https://github.com/ChisomJude/sentinelng**
 
 Built for **Ship and Earn Africa**, the Apify x She Code Africa BuildHer Hackathon 2026. Track: Cybersecurity.
 
@@ -172,6 +176,8 @@ On Apify: push the code, then set a schedule in the Console. Hourly is recommend
 ---
 
 ## Dashboard
+
+Live at **https://sentinelng-three.vercel.app/**
 
 A single static HTML file that reads directly from the Apify Dataset API. No backend, no build step. Paste the dataset ID from any run to view findings ranked by risk.
 
